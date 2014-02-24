@@ -1,7 +1,11 @@
 #!/usr/bin/env python
 
-#
-#
+#                                 _             __                                             _
+#   _____  ____ _ _ __ ___  _ __ | | ___       / _|_ __ __ _ _ __ ___   _____      _____  _ __| | __
+#  / _ \ \/ / _` | '_ ` _ \| '_ \| |/ _ \_____| |_| '__/ _` | '_ ` _ \ / _ \ \ /\ / / _ \| '__| |/ /
+# |  __/>  < (_| | | | | | | |_) | |  __/_____|  _| | | (_| | | | | | |  __/\ V  V / (_) | |  |   <
+#  \___/_/\_\__,_|_| |_| |_| .__/|_|\___|     |_| |_|  \__,_|_| |_| |_|\___| \_/\_/ \___/|_|  |_|\_\
+#                          |_|
 #
 
 import Queue
@@ -17,7 +21,7 @@ class ExampleScheduler(mesos.Scheduler):
     """Example scheduler that launches tasks that don't do a whole lot.
     """
 
-    TASK_CPU = 0.5
+    TASK_CPU = 0.1
     TASK_MEM = 32
 
     def __init__(self, taskQueue):
@@ -37,7 +41,6 @@ class ExampleScheduler(mesos.Scheduler):
         """
 
         print >> sys.stderr, "Registered framework %s" % (frameworkId.value)
-        print >> sys.stderr, "Connected with master %s" % (masterInfo.ip)
 
     def reregistered(self, driver, masterInfo):
         """
@@ -86,6 +89,7 @@ class ExampleScheduler(mesos.Scheduler):
             offer_cpu = 0
             offer_mem = 0
 
+            # Collect up the CPU and Memory resources from the offer
             for resource in offer.resources:
                 if resource.name == "cpus":
                     offer_cpu = resource.scalar.value
@@ -93,18 +97,25 @@ class ExampleScheduler(mesos.Scheduler):
                     offer_mem = resource.scalar.value
 
             tasks = []
+
+            # Keep looking for tasks until any of the following critera are met
+            #   - No more CPU left in the offer
+            #   - No more Memory left in the offer
+            #   - No more tasks left to launch
             while offer_mem >= self.TASK_MEM and offer_cpu >= self.TASK_CPU \
                 and not self.tasks.empty(): \
 
                 offer_cpu -= self.TASK_CPU
                 offer_mem -= self.TASK_MEM
 
+                # Pop a task off the queue
                 executor_id, task_id = self.tasks.get()
                 self.tasks.task_done()  # Mark it as done immediately
 
                 print >> sys.stderr, "Queue task %d:%d" % (executor_id, task_id)
                 tasks.append(self._buildTask(offer, executor_id, task_id))
 
+            # If we have any tasks to launch, ask the driver to launch them.
             if tasks:
                 driver.launchTasks(offer.id, tasks)
 
@@ -113,6 +124,7 @@ class ExampleScheduler(mesos.Scheduler):
         Create a TaskInfo object for an offer, executor_id and task_id.
         """
 
+        # Create the initial TaskInfo object
         task = mesos_pb2.TaskInfo()
         task.name = "Test Framework Task"
         task.task_id.value = "%d:%d" % (executor_id, task_id)
@@ -122,6 +134,9 @@ class ExampleScheduler(mesos.Scheduler):
         task.executor.executor_id.value = str(executor_id)
         task.executor.framework_id.value = offer.framework_id.value
 
+        # Find the relative path to the executor.
+        # NOTE: This will only work when the slave is running on the same machine
+        # as this framework.
         executor_path = os.path.join(
             os.path.dirname(os.path.realpath(__file__)), "bin/executor"
         )

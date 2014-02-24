@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# MESOS_BUILD_DIR: Build directory of where mesos is compiled
+export MESOS_BUILD_DIR=""
+
 test ! "${MESOS_BUILD_DIR}" && \
   echo "You must specify the MESOS_BUILD_DIR environment variable" && \
   return 1
