@@ -256,9 +256,9 @@ if __name__ == "__main__":
     parser.add_argument("-m", "--master", required=True, type=str,
                         help="IP/Port of mesos master")
     parser.add_argument("--num-tasks", default=1, type=int,
-                        help="Number of tasks to launch per executor")
+                        help="Number of tasks to launch per executor (default: 1)")
     parser.add_argument("--num-executors", default=1, type=int,
-                        help="Number of executors to launch")
+                        help="Number of executors to launch (default: 1)")
 
     args = parser.parse_args()
 
