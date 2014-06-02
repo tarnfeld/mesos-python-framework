@@ -31,7 +31,7 @@ class ExampleExecutor(mesos.Executor):
             update.state = mesos_pb2.TASK_RUNNING
             driver.sendStatusUpdate(update)
 
-            time.sleep(random.randint(2, 8))
+            time.sleep(15)
 
             update = mesos_pb2.TaskStatus()
             update.task_id.value = task.task_id.value
