@@ -109,17 +109,17 @@ class ExampleScheduler(mesos.Scheduler):
                 offer_mem -= self.TASK_MEM
 
                 # Pop a task off the queue
-                executor_id, task_id = self.tasks.get()
+                executor_id, task_id, args = self.tasks.get()
                 self.tasks.task_done()  # Mark it as done immediately
 
                 print >> sys.stderr, "Queue task %d:%d" % (executor_id, task_id)
-                tasks.append(self._buildTask(offer, executor_id, task_id))
+                tasks.append(self._buildTask(offer, executor_id, task_id, args))
 
             # If we have any tasks to launch, ask the driver to launch them.
             if tasks:
                 driver.launchTasks(offer.id, tasks)
 
-    def _buildTask(self, offer, executor_id, task_id):
+    def _buildTask(self, offer, executor_id, task_id, args):
         """
         Create a TaskInfo object for an offer, executor_id and task_id.
         """
@@ -134,11 +134,14 @@ class ExampleScheduler(mesos.Scheduler):
         task.executor.executor_id.value = str(executor_id)
         task.executor.framework_id.value = offer.framework_id.value
 
+        uri = task.executor.command.uris.add()
+        uri.value = args.executor_uri
+
         # Find the relative path to the executor.
         # NOTE: This will only work when the slave is running on the same machine
         # as this framework.
         executor_path = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)), "bin/executor"
+            os.basename(uri.value).split(".")[0], "bin/executor"
         )
         task.executor.command.value = os.path.abspath(executor_path)
 
@@ -259,6 +262,8 @@ if __name__ == "__main__":
                         help="Number of tasks to launch per executor (default: 1)")
     parser.add_argument("--num-executors", default=1, type=int,
                         help="Number of executors to launch (default: 1)")
+    parser.add_argument("--executor-uri", required=True, type=str,
+                        help="URL to download a version of this code.")
 
     args = parser.parse_args()
 
@@ -266,7 +271,7 @@ if __name__ == "__main__":
     tasks = Queue.Queue()
     for task in xrange(args.num_tasks):
         for executor in xrange(args.num_executors):
-            tasks.put((executor, task))
+            tasks.put((executor, task, args))
 
     # Launch the mesos framework
     framework = mesos_pb2.FrameworkInfo()
