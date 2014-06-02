@@ -137,13 +137,9 @@ class ExampleScheduler(mesos.Scheduler):
         uri = task.executor.command.uris.add()
         uri.value = args.executor_uri
 
-        # Find the relative path to the executor.
-        # NOTE: This will only work when the slave is running on the same machine
-        # as this framework.
-        executor_path = os.path.join(
-            os.basename(uri.value).split(".")[0], "bin/executor"
+        task.executor.command.value = os.path.join(
+            os.path.basename(uri.value).split(".")[0], "bin/executor"
         )
-        task.executor.command.value = os.path.abspath(executor_path)
 
         # Add the task resource
         cpus = task.resources.add()
