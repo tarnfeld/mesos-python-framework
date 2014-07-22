@@ -12,12 +12,18 @@ import Queue
 import argparse
 import sys
 import os
+import threading
+import time
 
-import mesos
-import mesos_pb2
+# import mesos
+# import mesos_pb2
+
+import pesos.api
+import pesos.scheduler
+from pesos.vendor.mesos import mesos_pb2
 
 
-class ExampleScheduler(mesos.Scheduler):
+class ExampleScheduler(pesos.api.Scheduler):
     """Example scheduler that launches tasks that don't do a whole lot.
     """
 
@@ -60,7 +66,7 @@ class ExampleScheduler(mesos.Scheduler):
 
         print >> sys.stderr, "Disconnected from master"
 
-    def resourceOffers(self, driver, offers):
+    def resource_offers(self, driver, offers):
         """
         Invoked when resources have been offered to this framework. A
         single offer will only contain resources from a single slave.
@@ -79,15 +85,16 @@ class ExampleScheduler(mesos.Scheduler):
         fail with a TASK_LOST status and a message saying as much).
         """
 
-        print >> sys.stderr, "Received offers"
-
-        if self.tasks.empty():
-            return  # Skip as there are no tasks left to worry about
+        print >> sys.stderr, "Received %d offers" % len(offers)
 
         # Loop over the offers and see if there's anything that looks good
         for offer in offers:
             offer_cpu = 0
             offer_mem = 0
+
+            if self.tasks.empty():
+                for offer in offers:
+                    driver.decline_offer(offer.id)
 
             # Collect up the CPU and Memory resources from the offer
             for resource in offer.resources:
@@ -113,13 +120,15 @@ class ExampleScheduler(mesos.Scheduler):
                 self.tasks.task_done()  # Mark it as done immediately
 
                 print >> sys.stderr, "Queue task %d:%d" % (executor_id, task_id)
-                tasks.append(self._buildTask(offer, executor_id, task_id, args))
+                tasks.append(self._build_task(offer, executor_id, task_id, args))
 
             # If we have any tasks to launch, ask the driver to launch them.
             if tasks:
-                driver.launchTasks(offer.id, tasks)
+                driver.launch_tasks(offer.id, tasks)
+            else:
+                driver.decline_offer(offer.id)
 
-    def _buildTask(self, offer, executor_id, task_id, args):
+    def _build_task(self, offer, executor_id, task_id, args):
         """
         Create a TaskInfo object for an offer, executor_id and task_id.
         """
@@ -154,7 +163,7 @@ class ExampleScheduler(mesos.Scheduler):
 
         return task
 
-    def offerRescinded(self, driver, offerId):
+    def offer_rescinded(self, driver, offerId):
         """
         Invoked when an offer is no longer valid (e.g., the slave was
         lost or another framework used resources in the offer). If for
@@ -166,7 +175,7 @@ class ExampleScheduler(mesos.Scheduler):
 
         print >> sys.stderr, "Offer rescinded %s" % (offerId.value)
 
-    def statusUpdate(self, driver, taskStatus):
+    def status_update(self, driver, taskStatus):
         """
         Invoked when the status of a task has changed (e.g., a slave is
         lost and so the task is lost, a task finishes and an executor
@@ -204,7 +213,7 @@ class ExampleScheduler(mesos.Scheduler):
         if self.terminal == self.total_tasks:
             driver.stop()
 
-    def frameworkMessage(self, driver, executorId, slaveId, data):
+    def framework_message(self, driver, executorId, slaveId, data):
         """
         Invoked when an executor sends a message. These messages are best
         effort; do not expect a framework message to be retransmitted in
@@ -217,7 +226,7 @@ class ExampleScheduler(mesos.Scheduler):
             data
         )
 
-    def slaveLost(self, driver, slaveId):
+    def slave_lost(self, driver, slaveId):
         """
         Invoked when a slave has been determined unreachable (e.g.,
         machine failure, network partition). Most frameworks will need to
@@ -226,7 +235,7 @@ class ExampleScheduler(mesos.Scheduler):
 
         print >> sys.stderr, "Slave %s has been lost. Y U DO DIS." % (slaveId.value)
 
-    def executorLost(self, driver, executorId, slaveId, exitCode):
+    def executor_lost(self, driver, executorId, slaveId, exitCode):
         """
         Invoked when an executor has exited/terminated. Note that any
         tasks running will have TASK_LOST status updates automagically
@@ -274,15 +283,23 @@ if __name__ == "__main__":
     framework.user = ""  # Mesos can select the user
     framework.name = "Test Python Framework"
 
-    driver = mesos.MesosSchedulerDriver(
-        ExampleScheduler(tasks),
-        framework,
-        args.master
-    )
-
     status = 0
-    if driver.run() == mesos_pb2.DRIVER_STOPPED:
-        status = 1
 
-    driver.stop()
-    exit(status)
+    def launch_driver():
+        global status
+
+        driver = pesos.scheduler.MesosSchedulerDriver(
+            ExampleScheduler(tasks),
+            framework,
+            args.master
+        )
+
+        if driver.run() == mesos_pb2.DRIVER_STOPPED:
+            status = 1
+
+    t = threading.Thread(target=launch_driver)
+    t.setDaemon(True)
+    t.start()
+
+    while t.isAlive():
+        time.sleep(0.5)
