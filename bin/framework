@@ -3,4 +3,6 @@
 set -e
 cd $(dirname $(dirname "$0"))
 
-python framework.py "${@}"
+bin/setup
+
+bin/env/bin/python framework.py "${@}"

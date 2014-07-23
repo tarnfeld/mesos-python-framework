@@ -1,4 +1,4 @@
 trollius==0.4
-git+git://github.com/duedil-ltd/tornado.git@eda5335b4715d94c89f70584d655e44fc7acdf29#egg=tornado
-git+git://github.com/tarnefld/compactor.git@c1fc8b543316efa616a75df1d2f43b86aebdec87#egg=compactor
+git+git://github.com/duedil-ltd/tornado.git@016fa926d2f85f56a00703b0523d50e56b3f0a45#egg=tornado
+git+git://github.com/tarnfeld/compactor.git@c1fc8b543316efa616a75df1d2f43b86aebdec87#egg=compactor
 git+git://github.com/tarnfeld/pesos.git@14971a6da5156e07b6524f5c87b2f7921f1810f1#egg=pesos
