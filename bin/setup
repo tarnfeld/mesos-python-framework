@@ -32,9 +32,9 @@ export CPPFLAGS=-Qunused-arguments
 
 # Install the requirements
 if [ ! -f "./bin/env/updated" -o requirements.pip -nt ./bin/env/updated ]; then
-  virtualenv ./env -p python2.7
+  virtualenv ./bin/env -p python2.7
   ./bin/env/bin/pip install -U distribute==0.6.46
-  ./bin.env/bin/pip install -r requirements.pip
+  ./bin/env/bin/pip install -r requirements.pip
   if [ $? -ne 0 ]; then
     echo "There was a problem installing requirements. Aborting."
     exit 1
