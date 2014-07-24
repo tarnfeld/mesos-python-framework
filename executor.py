@@ -8,28 +8,30 @@
 #                          |_|
 #
 
+import logging
 import threading
-import random
 import time
-import sys
 
-import mesos
-import mesos_pb2
+import pesos.api
+import pesos.executor
+from pesos.vendor.mesos import mesos_pb2
+
+logger = logging.getLogger(__name__)
 
 
-class ExampleExecutor(mesos.Executor):
+class ExampleExecutor(pesos.api.Executor):
 
-    def launchTask(self, driver, task):
+    def launch_task(self, driver, task):
 
-        print >> sys.stderr, "HELLO"
+        logger.info("HELLO I AM TASK")
 
         def run_task():
-            print >> sys.stderr, "Launching task %s" % (task.task_id.value)
+            logger.info("Launching task %s", task.task_id.value)
 
             update = mesos_pb2.TaskStatus()
             update.task_id.value = task.task_id.value
             update.state = mesos_pb2.TASK_RUNNING
-            driver.sendStatusUpdate(update)
+            driver.send_status_update(update)
 
             time.sleep(15)
 
@@ -38,7 +40,7 @@ class ExampleExecutor(mesos.Executor):
             update.state = mesos_pb2.TASK_FINISHED
 
             # Send the terminal update
-            driver.sendStatusUpdate(update)
+            driver.send_status_update(update)
 
         thread = threading.Thread(target=run_task)
         thread.daemon = True
@@ -48,7 +50,7 @@ class ExampleExecutor(mesos.Executor):
 if __name__ == "__main__":
 
     # Launch the executor driver
-    driver = mesos.MesosExecutorDriver(ExampleExecutor())
+    driver = pesos.executor.MesosExecutorDriver(ExampleExecutor())
 
     status = 0
     if driver.run() == mesos_pb2.DRIVER_STOPPED:

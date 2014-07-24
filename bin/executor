@@ -4,5 +4,4 @@ set -e
 cd $(dirname $(dirname "$0"))
 
 bin/setup
-
 bin/env/bin/python executor.py "${@}"

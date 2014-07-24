@@ -10,17 +10,17 @@
 
 import Queue
 import argparse
-import sys
 import os
 import threading
 import time
+import logging
 
-# import mesos
-# import mesos_pb2
 
 import pesos.api
 import pesos.scheduler
 from pesos.vendor.mesos import mesos_pb2
+
+logger = logging.getLogger(__name__)
 
 
 class ExampleScheduler(pesos.api.Scheduler):
@@ -46,7 +46,7 @@ class ExampleScheduler(pesos.api.Scheduler):
         with the ip and port of the current master are provided as arguments.
         """
 
-        print >> sys.stderr, "Registered framework %s" % (frameworkId.value)
+        logger.info("Registered framework %s" % (frameworkId.value))
 
     def reregistered(self, driver, masterInfo):
         """
@@ -56,7 +56,7 @@ class ExampleScheduler(pesos.api.Scheduler):
         is provided as an argument.
         """
 
-        print >> sys.stderr, "Connected with master %s" % (masterInfo.ip)
+        logger.info("Connected with master %s" % (masterInfo.ip))
 
     def disconnected(self, driver):
         """
@@ -64,7 +64,7 @@ class ExampleScheduler(pesos.api.Scheduler):
         (e.g., the master fails and another is taking over).
         """
 
-        print >> sys.stderr, "Disconnected from master"
+        logger.info("Disconnected from master")
 
     def resource_offers(self, driver, offers):
         """
@@ -85,7 +85,7 @@ class ExampleScheduler(pesos.api.Scheduler):
         fail with a TASK_LOST status and a message saying as much).
         """
 
-        print >> sys.stderr, "Received %d offers" % len(offers)
+        logger.info("Received %d offers" % len(offers))
 
         # Loop over the offers and see if there's anything that looks good
         for offer in offers:
@@ -105,7 +105,7 @@ class ExampleScheduler(pesos.api.Scheduler):
 
             tasks = []
 
-            # Keep looking for tasks until any of the following critera are met
+            # Keep looking for tasks until any of the following criteria are met
             #   - No more CPU left in the offer
             #   - No more Memory left in the offer
             #   - No more tasks left to launch
@@ -119,7 +119,7 @@ class ExampleScheduler(pesos.api.Scheduler):
                 executor_id, task_id, args = self.tasks.get()
                 self.tasks.task_done()  # Mark it as done immediately
 
-                print >> sys.stderr, "Queue task %d:%d" % (executor_id, task_id)
+                logger.info("Queue task %d:%d" % (executor_id, task_id))
                 tasks.append(self._build_task(offer, executor_id, task_id, args))
 
             # If we have any tasks to launch, ask the driver to launch them.
@@ -168,12 +168,12 @@ class ExampleScheduler(pesos.api.Scheduler):
         Invoked when an offer is no longer valid (e.g., the slave was
         lost or another framework used resources in the offer). If for
         whatever reason an offer is never rescinded (e.g., dropped
-        message, failing over framework, etc.), a framwork that attempts
+        message, failing over framework, etc.), a framework that attempts
         to launch tasks using an invalid offer will receive TASK_LOST
-        status updats for those tasks (see Scheduler::resourceOffers).
+        status updates for those tasks (see Scheduler::resourceOffers).
         """
 
-        print >> sys.stderr, "Offer rescinded %s" % (offerId.value)
+        logger.info("Offer rescinded %s" % (offerId.value))
 
     def status_update(self, driver, taskStatus):
         """
@@ -197,10 +197,10 @@ class ExampleScheduler(pesos.api.Scheduler):
             mesos_pb2.TASK_LOST: "LOST",
         }
 
-        print >> sys.stderr, "Received status update for task %s (%s)" % (
+        logger.info("Received status update for task %s (%s)" % (
             taskStatus.task_id.value,
             statuses[taskStatus.state]
-        )
+        ))
 
         if taskStatus.state == mesos_pb2.TASK_FINISHED or \
             taskStatus.state == mesos_pb2.TASK_FAILED or \
@@ -220,11 +220,11 @@ class ExampleScheduler(pesos.api.Scheduler):
         any reliable fashion.
         """
 
-        print >> sys.stderr, "Message from executor %s and slave %s: %s" % (
+        logger.info("Message from executor %s and slave %s: %s" % (
             executorId.value,
             slaveId.value,
             data
-        )
+        ))
 
     def slave_lost(self, driver, slaveId):
         """
@@ -233,7 +233,7 @@ class ExampleScheduler(pesos.api.Scheduler):
         reschedule any tasks launched on this slave on a new slave.
         """
 
-        print >> sys.stderr, "Slave %s has been lost. Y U DO DIS." % (slaveId.value)
+        logger.info("Slave %s has been lost. Y U DO DIS." % (slaveId.value))
 
     def executor_lost(self, driver, executorId, slaveId, exitCode):
         """
@@ -242,11 +242,11 @@ class ExampleScheduler(pesos.api.Scheduler):
         generated.
         """
 
-        print >> sys.stderr, "Executor %s has been lost on slave %s with exit code %d" % (
+        logger.info("Executor %s has been lost on slave %s with exit code %d" % (
             executorId.value,
             slaveId.value,
             exitCode
-        )
+        ))
 
     def error(self, driver, message):
         """
@@ -255,7 +255,7 @@ class ExampleScheduler(pesos.api.Scheduler):
         callback.
         """
 
-        print >> sys.stderr, "There was an error: %s" % (message)
+        logger.info("There was an error: %s" % (message))
 
 
 if __name__ == "__main__":
@@ -272,6 +272,11 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    # Setup the loggers
+    loggers = (__name__, "tornado", "pesos", "compactor")
+    for log in loggers:
+        logging.getLogger(log).setLevel(logging.DEBUG)
+
     # Create the queue of tasks
     tasks = Queue.Queue()
     for task in xrange(args.num_tasks):
@@ -280,7 +285,6 @@ if __name__ == "__main__":
 
     # Launch the mesos framework
     framework = mesos_pb2.FrameworkInfo()
-    framework.user = ""  # Mesos can select the user
     framework.name = "Test Python Framework"
 
     status = 0
