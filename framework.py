@@ -93,8 +93,8 @@ class ExampleScheduler(pesos.api.Scheduler):
             offer_mem = 0
 
             if self.tasks.empty():
-                for offer in offers:
-                    driver.decline_offer(offer.id)
+                driver.decline_offer(offer.id)
+                continue
 
             # Collect up the CPU and Memory resources from the offer
             for resource in offer.resources:
