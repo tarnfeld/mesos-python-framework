@@ -49,6 +49,10 @@ class ExampleExecutor(pesos.api.Executor):
 
 if __name__ == "__main__":
 
+    for l in ('pesos', 'compactor', 'tornado', '__main__'):
+        l = logging.getLogger(l)
+        l.setLevel(logging.DEBUG)
+
     # Launch the executor driver
     driver = pesos.executor.MesosExecutorDriver(ExampleExecutor())
 

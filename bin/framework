@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 
 set -e
-cd $(dirname $(dirname "$0"))
 
-bin/setup
-bin/env/bin/python framework.py "${@}"
+cd $(dirname $(dirname "$0"))
+./bin/setup 1>&2
+
+source ./bin/env/bin/activate
+python2.7 framework.py "$@"

@@ -28,7 +28,7 @@ class ExampleScheduler(pesos.api.Scheduler):
     """
 
     TASK_CPU = 0.1
-    TASK_MEM = 32
+    TASK_MEM = 256
 
     def __init__(self, taskQueue):
 
@@ -87,13 +87,15 @@ class ExampleScheduler(pesos.api.Scheduler):
 
         logger.info("Received %d offers" % len(offers))
 
+        declined = []
+
         # Loop over the offers and see if there's anything that looks good
         for offer in offers:
             offer_cpu = 0
             offer_mem = 0
 
             if self.tasks.empty():
-                driver.decline_offer(offer.id)
+                declined.append(offer.id)
                 continue
 
             # Collect up the CPU and Memory resources from the offer
@@ -125,8 +127,10 @@ class ExampleScheduler(pesos.api.Scheduler):
             # If we have any tasks to launch, ask the driver to launch them.
             if tasks:
                 driver.launch_tasks(offer.id, tasks)
-            else:
-                driver.decline_offer(offer.id)
+
+        # Decline the offers in batch
+        if declined:
+            driver.decline_offer(declined)
 
     def _build_task(self, offer, executor_id, task_id, args):
         """
@@ -146,9 +150,7 @@ class ExampleScheduler(pesos.api.Scheduler):
         uri = task.executor.command.uris.add()
         uri.value = args.executor_uri
 
-        task.executor.command.value = os.path.join(
-            os.path.basename(uri.value).split(".")[0], "bin/executor"
-        )
+        task.executor.command.value = "./%s/bin/executor" % os.path.basename(uri.value).split(".")[0]
 
         # Add the task resource
         cpus = task.resources.add()
@@ -260,6 +262,10 @@ class ExampleScheduler(pesos.api.Scheduler):
 
 if __name__ == "__main__":
 
+    for l in ('pesos', 'compactor', 'tornado', '__main__'):
+        l = logging.getLogger(l)
+        l.setLevel(logging.DEBUG)
+
     parser = argparse.ArgumentParser(prog="docker-launcher")
     parser.add_argument("-m", "--master", required=True, type=str,
                         help="IP/Port of mesos master")
@@ -287,21 +293,13 @@ if __name__ == "__main__":
     framework = mesos_pb2.FrameworkInfo()
     framework.name = "Test Python Framework"
 
-    status = 0
+    driver = pesos.scheduler.MesosSchedulerDriver(
+        ExampleScheduler(tasks),
+        framework,
+        args.master
+    )
 
-    def launch_driver():
-        global status
-
-        driver = pesos.scheduler.MesosSchedulerDriver(
-            ExampleScheduler(tasks),
-            framework,
-            args.master
-        )
-
-        if driver.run() == mesos_pb2.DRIVER_STOPPED:
-            status = 1
-
-    t = threading.Thread(target=launch_driver)
+    t = threading.Thread(target=driver.run)
     t.setDaemon(True)
     t.start()
 

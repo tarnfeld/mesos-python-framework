@@ -7,7 +7,10 @@
 #  (_)_/  |_.__/|_|_| |_/_/ |___/\___|\__|\__,_| .__/
 #                                              |_|
 
-cd $(dirname $(dirname "$0"))
+set -e
+set -x
+
+cd $(dirname "$0")
 
 function check_deps() {
     missing=
@@ -31,15 +34,15 @@ export CFLAGS=-Qunused-arguments
 export CPPFLAGS=-Qunused-arguments
 
 # Install the requirements
-if [ ! -f "./bin/env/updated" -o requirements.pip -nt ./bin/env/updated ]; then
-  virtualenv ./bin/env -p python2.7
-  ./bin/env/bin/pip install -U distribute==0.6.46
-  ./bin/env/bin/pip install -r requirements.pip
+if [ ! -f "./env/updated" -o ../requirements.pip -nt ./env/updated ]; then
+  virtualenv ./env -p python2.7
+  ./env/bin/pip install -U distribute==0.6.46
+  ./env/bin/pip install -r ../requirements.pip
   if [ $? -ne 0 ]; then
     echo "There was a problem installing requirements. Aborting."
     exit 1
   fi
 
   echo Base requirements installed.
-  touch ./bin/env/updated
+  touch ./env/updated
 fi
