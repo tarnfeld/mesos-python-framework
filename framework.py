@@ -87,50 +87,54 @@ class ExampleScheduler(pesos.api.Scheduler):
 
         logger.info("Received %d offers" % len(offers))
 
-        declined = []
+        def handle_offers():
+            declined = []
 
-        # Loop over the offers and see if there's anything that looks good
-        for offer in offers:
-            offer_cpu = 0
-            offer_mem = 0
+            # Loop over the offers and see if there's anything that looks good
+            for offer in offers:
+                offer_cpu = 0
+                offer_mem = 0
 
-            if self.tasks.empty():
-                declined.append(offer.id)
-                continue
+                if self.tasks.empty():
+                    declined.append(offer.id)
+                    continue
 
-            # Collect up the CPU and Memory resources from the offer
-            for resource in offer.resources:
-                if resource.name == "cpus":
-                    offer_cpu = resource.scalar.value
-                if resource.name == "mem":
-                    offer_mem = resource.scalar.value
+                # Collect up the CPU and Memory resources from the offer
+                for resource in offer.resources:
+                    if resource.name == "cpus":
+                        offer_cpu = resource.scalar.value
+                    if resource.name == "mem":
+                        offer_mem = resource.scalar.value
 
-            tasks = []
+                tasks = []
 
-            # Keep looking for tasks until any of the following criteria are met
-            #   - No more CPU left in the offer
-            #   - No more Memory left in the offer
-            #   - No more tasks left to launch
-            while offer_mem >= self.TASK_MEM and offer_cpu >= self.TASK_CPU \
-                and not self.tasks.empty(): \
+                # Keep looking for tasks until any of the following criteria are met
+                #   - No more CPU left in the offer
+                #   - No more Memory left in the offer
+                #   - No more tasks left to launch
+                while offer_mem >= self.TASK_MEM and offer_cpu >= self.TASK_CPU \
+                    and not self.tasks.empty(): \
 
-                offer_cpu -= self.TASK_CPU
-                offer_mem -= self.TASK_MEM
+                    offer_cpu -= self.TASK_CPU
+                    offer_mem -= self.TASK_MEM
 
-                # Pop a task off the queue
-                executor_id, task_id, args = self.tasks.get()
-                self.tasks.task_done()  # Mark it as done immediately
+                    # Pop a task off the queue
+                    executor_id, task_id, args = self.tasks.get()
+                    self.tasks.task_done()  # Mark it as done immediately
 
-                logger.info("Queue task %d:%d" % (executor_id, task_id))
-                tasks.append(self._build_task(offer, executor_id, task_id, args))
+                    logger.info("Queue task %d:%d" % (executor_id, task_id))
+                    tasks.append(self._build_task(offer, executor_id, task_id, args))
 
-            # If we have any tasks to launch, ask the driver to launch them.
-            if tasks:
-                driver.launch_tasks(offer.id, tasks)
+                # If we have any tasks to launch, ask the driver to launch them.
+                if tasks:
+                    driver.launch_tasks(offer.id, tasks)
 
-        # Decline the offers in batch
-        if declined:
-            driver.decline_offer(declined)
+            # Decline the offers in batch
+            if declined:
+                driver.decline_offer(declined)
+
+        t = threading.Thread(target=handle_offers)
+        t.start()
 
     def _build_task(self, offer, executor_id, task_id, args):
         """
