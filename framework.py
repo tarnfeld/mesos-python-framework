@@ -296,6 +296,7 @@ if __name__ == "__main__":
     # Launch the mesos framework
     framework = mesos_pb2.FrameworkInfo()
     framework.name = "Test Python Framework"
+    framework.user = "root"
 
     driver = pesos.scheduler.MesosSchedulerDriver(
         ExampleScheduler(tasks),
